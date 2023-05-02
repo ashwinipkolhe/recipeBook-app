@@ -35,18 +35,22 @@ public class RecipeBookService {
 	@Autowired
 	IngredientRepository ingredientRepository;
 
-	/*
-	 * @Autowired IngredientListRepository ingredientListRepository;
+	/**
+	 * 
+	 * This method will create New Recipe in Database
+	 * 
+	 * @param newRecipeDto
+	 * @throws RecipeAlreadyExistsException
+	 * @throws EmptyIngredientListException
 	 */
-
-	public void createRecipe(RecipeDto recipeDto) throws RecipeAlreadyExistsException, EmptyIngredientListException {
+	public void createRecipe(RecipeDto newRecipeDto) throws RecipeAlreadyExistsException, EmptyIngredientListException {
 
 		Recipe recipe = new Recipe();
-		recipe.setName(recipeDto.getName());
-		recipe.setNoOfPeople(recipeDto.getNoOfPeople());
-		recipe.setVegetarian(recipeDto.getIsVegetarian());
+		recipe.setName(newRecipeDto.getName());
+		recipe.setNoOfPeople(newRecipeDto.getNoOfPeople());
+		recipe.setVegetarian(newRecipeDto.getIsVegetarian());
 		recipe.setDateOfCreation(LocalDateTime.now());
-		recipe.setCookingInstructions(recipeDto.getCookingInstructions());
+		recipe.setCookingInstructions(newRecipeDto.getCookingInstructions());
 		Optional<Recipe> recipes = recipeBookRepository.findByNameIgnoreCase(recipe.getName());
 		if (recipes.isPresent()) {
 			throw new RecipeAlreadyExistsException("Recipe with this name already exists");
@@ -54,12 +58,12 @@ public class RecipeBookService {
 		} else {
 
 			List<Ingredient> list = new ArrayList<>();
-			if (recipeDto.getIngredients().isEmpty()) {
+			if (newRecipeDto.getIngredients().isEmpty()) {
 				throw new EmptyIngredientListException(
 						"Ingredient List Cannot be empty, Please add atleast one ingredient");
 			}
 
-			for (IngredientDto ingredientDto : recipeDto.getIngredients()) {
+			for (IngredientDto ingredientDto : newRecipeDto.getIngredients()) {
 				Ingredient ingredient = new Ingredient();
 				Optional<IngredientMaster> ingredientMasterOptional = ingredientMasterRepository
 						.findByNameIgnoreCase(ingredientDto.getName());
@@ -83,24 +87,34 @@ public class RecipeBookService {
 		}
 	}
 
+	/**
+	 * This method will delete Recipe from database based on recipeId
+	 * 
+	 * @param recipeId
+	 * @throws RecipeNotFoundException
+	 */
 	@Transactional
-	public void deleteRecipe(Long id) throws RecipeNotFoundException {
+	public void deleteRecipe(Long recipeId) throws RecipeNotFoundException {
 
-		Recipe existingRecipe = recipeBookRepository.findById(id)
+		Recipe existingRecipe = recipeBookRepository.findById(recipeId)
 				.orElseThrow(() -> new RecipeNotFoundException("No recipe found with this recipe id"));
 
-		recipeBookRepository.deleteById(id);
+		recipeBookRepository.deleteById(recipeId);
 	}
 
+	/**
+	 * This method will return all recipes from database along with their Ingrdients
+	 * list
+	 * 
+	 * @throws EmptyRecipeListException
+	 */
 	public List<RecipeWithIngredientsDto> getAllRecipesWithIngredients() throws EmptyRecipeListException {
 		List<Recipe> recipes = recipeBookRepository.findAll();
 
 		if (recipes.isEmpty()) {
 			throw new EmptyRecipeListException("No Recipes Found");
 		}
-
 		List<RecipeWithIngredientsDto> recipewithIngredientsList = new ArrayList<>();
-
 		for (Recipe recipe : recipes) {
 
 			RecipeWithIngredientsDto recipeWithIngredients = new RecipeWithIngredientsDto();
@@ -132,20 +146,38 @@ public class RecipeBookService {
 
 	}
 
+	/**
+	 * This method will update Recipe and its respective contents into database
+	 * based on recipeId
+	 * 
+	 * @param recipeId
+	 * @param updatedRecipeDto
+	 * @throws RecipeNotFoundException
+	 * @throws EmptyIngredientListException
+	 */
 	@Transactional
-	public void updateRecipe(Long id, RecipeDto recipeDto)
+	public void updateRecipe(Long recipeId, RecipeDto updatedRecipeDto)
 			throws RecipeNotFoundException, EmptyIngredientListException {
 
-		Recipe recipe = recipeBookRepository.findById(id)
-				.orElseThrow(() -> new RecipeNotFoundException("Recipe not found with id " + id));
-		recipe.setName(recipeDto.getName());
+		// Find existing Recipe from Database using recipeId
+		Recipe existingRecipe = recipeBookRepository.findById(recipeId)
+				.orElseThrow(() -> new RecipeNotFoundException("Recipe not found with id " + recipeId));
+
+		// Update values
+		existingRecipe.setName(updatedRecipeDto.getName());
+		existingRecipe.setNoOfPeople(updatedRecipeDto.getNoOfPeople());
+		existingRecipe.setVegetarian(updatedRecipeDto.getIsVegetarian());
+		// recipe.setDateOfCreation(recipe.getDateOfCreation());
+		existingRecipe.setCookingInstructions(updatedRecipeDto.getCookingInstructions());
+
+		// Check if ingredient List is empty
 		List<Ingredient> list = new ArrayList<>();
-		if (recipeDto.getIngredients().isEmpty()) {
+		if (updatedRecipeDto.getIngredients().isEmpty()) {
 			throw new EmptyIngredientListException(
 					"Ingredient List Cannot be empty, Please add atleast one ingredient");
 		}
 
-		for (IngredientDto ingredientDto : recipeDto.getIngredients()) {
+		for (IngredientDto ingredientDto : updatedRecipeDto.getIngredients()) {
 			Ingredient ingredient = new Ingredient();
 			Optional<IngredientMaster> ingredientMasterOptional = ingredientMasterRepository
 					.findByNameIgnoreCase(ingredientDto.getName());
@@ -160,14 +192,14 @@ public class RecipeBookService {
 				ingredientMasterRepository.save(ingredientMaster);
 			}
 			ingredient.setIngredientMasterId(ingredientMaster);
-			ingredient.setRecipe(recipe);
+			ingredient.setRecipe(existingRecipe);
 			list.add(ingredient);
 
 		}
-		recipe.getIngredients().clear();
-		recipe.getIngredients().add(list.get(0));
-		recipe.getIngredients().addAll(list);
-		recipeBookRepository.save(recipe);
+		existingRecipe.getIngredients().clear();
+		existingRecipe.getIngredients().add(list.get(0));
+		existingRecipe.getIngredients().addAll(list);
+		recipeBookRepository.save(existingRecipe);
 	}
 
 }
